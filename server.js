@@ -8,8 +8,8 @@ const app = express();
 app.use(bodyParser.json());
 
 // ====== VAPID 키 설정 ======
-const PUBLIC_VAPID_KEY = 'BJI70reaMqaOyL0aXjZW-3KSfgeJA2IbACMi1SgT_36V5OXWVjlZYV32wVQuioXblmTtNqR99udAv-G_muJQiqY';
-const PRIVATE_VAPID_KEY = 'htB_RCqj8_7Aojr0V1sdT5AqbKD2ySXC_AJybfoRGHQ';
+const PUBLIC_VAPID_KEY = process.env.PUBLIC_VAPID_KEY;
+const PRIVATE_VAPID_KEY = process.env.PRIVATE_VAPID_KEY;
 
 webpush.setVapidDetails(
   'mailto:your-email@example.com',
