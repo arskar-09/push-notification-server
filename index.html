@@ -2,108 +2,116 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>TimePeek 예약 알림</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>스케줄 알림 설정</title>
+  <link rel="manifest" href="manifest.json">
   <style>
-    body { font-family: 'Noto Sans KR', sans-serif; background:#f8fafc; color:#111; padding:24px; max-width:480px; margin:auto; }
-    h1 { text-align:center; margin-bottom:20px; color:#2563eb; }
-    .card { background:white; padding:20px; border-radius:14px; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
-    label { display:block; margin-top:10px; font-weight:600; }
-    input, textarea { width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; margin-top:6px; font-size:15px; }
-    button { width:100%; margin-top:14px; padding:12px; border:none; border-radius:10px; background:#2563eb; color:white; font-size:16px; font-weight:600; cursor:pointer; }
-    button:hover { background:#1e40af; }
-    p.status { text-align:center; color:#64748b; margin-top:10px; font-size:14px; }
+    body {
+      font-family: 'Pretendard', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: #f7f9fc;
+      color: #333;
+      margin: 0;
+    }
+    h1 {
+      color: #1e88e5;
+      margin-bottom: 20px;
+    }
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      width: 90%;
+      max-width: 400px;
+      text-align: center;
+    }
+    input, textarea, button {
+      width: 100%;
+      margin: 8px 0;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background: #1e88e5;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover { background: #1565c0; }
   </style>
 </head>
 <body>
-  <h1>TimePeek 알림 예약</h1>
+  <h1>📅 알림 예약</h1>
   <div class="card">
-    <label>알림 내용</label>
-    <textarea id="message" rows="3" placeholder="예: 내일 오전 9시에 회의 준비"></textarea>
-
-    <label>날짜</label>
-    <input type="date" id="dateInput">
-
-    <label>시간</label>
-    <input type="time" id="timeInput">
-
-    <button id="subscribeBtn">알림 구독</button>
-    <button id="scheduleBtn">알림 예약</button>
-
-    <p class="status" id="status"></p>
+    <textarea id="message" placeholder="보낼 메시지를 입력하세요"></textarea>
+    <input type="date" id="date">
+    <input type="time" id="time">
+    <button id="subscribe">🔔 알림 허용</button>
+    <button id="schedule">✅ 예약 등록</button>
   </div>
 
-<script>
-const SERVER_URL = 'https://my-push-server.onrender.com';
-const PUBLIC_VAPID_KEY = 'BJI70reaMqaOyL0aXjZW-3KSfgeJA2IbACMi1SgT_36V5OXWVjlZYV32wVQuioXblmTtNqR99udAv-G_muJQiqY';
+  <script>
+    const SERVER_URL = "https://push-notification-server.onrender.com"; // Render URL로 교체
 
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
-  const rawData = atob(base64);
-  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
-}
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js');
+    }
 
-async function registerSW() {
-  const reg = await navigator.serviceWorker.register('service-worker.js');
-  return reg;
-}
+    let subscription = null;
 
-async function subscribeUser() {
-  const reg = await registerSW();
-  const permission = await Notification.requestPermission();
-  if (permission !== 'granted') {
-    alert('알림 권한을 허용해야 알림을 받을 수 있습니다.');
-    return;
-  }
-  const sub = await reg.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
-  });
-  await fetch(`${SERVER_URL}/subscribe`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(sub)
-  });
-  document.getElementById('status').textContent = '✅ 알림 구독 완료';
-}
+    document.getElementById('subscribe').addEventListener('click', async () => {
+      const registration = await navigator.serviceWorker.ready;
+      const existingSub = await registration.pushManager.getSubscription();
+      if (existingSub) {
+        subscription = existingSub;
+      } else {
+        const response = await fetch(`${SERVER_URL}/public-key`);
+        const publicKey = await response.text();
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey),
+        });
+      }
+      await fetch(`${SERVER_URL}/subscribe`, {
+        method: 'POST',
+        body: JSON.stringify(subscription),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      alert('✅ 알림이 활성화되었습니다!');
+    });
 
-document.getElementById('subscribeBtn').addEventListener('click', subscribeUser);
+    document.getElementById('schedule').addEventListener('click', async () => {
+      const message = document.getElementById('message').value.trim();
+      const date = document.getElementById('date').value;
+      const time = document.getElementById('time').value;
 
-function getTimestamp() {
-  const date = document.getElementById('dateInput').value;
-  const time = document.getElementById('timeInput').value;
-  if (!date || !time) return null;
-  return new Date(`${date}T${time}`).getTime();
-}
+      if (!message || !date || !time) return alert("모든 항목을 입력해주세요.");
 
-document.getElementById('scheduleBtn').addEventListener('click', async () => {
-  const message = document.getElementById('message').value.trim();
-  const timestamp = getTimestamp();
-  if (!message || !timestamp) return alert('메시지와 날짜/시간을 모두 입력하세요.');
-  if (timestamp <= Date.now()) return alert('미래 시간을 선택하세요.');
+      const timestamp = new Date(`${date}T${time}:00`).getTime();
+      await fetch(`${SERVER_URL}/schedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, timestamp })
+      });
+      alert('✅ 알림이 예약되었습니다!');
+    });
 
-  await fetch(`${SERVER_URL}/schedule`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, timestamp })
-  });
-
-  document.getElementById('status').textContent = '⏰ 예약 완료! 지정된 시간에 알림이 전송됩니다.';
-  alert('예약이 등록되었습니다.');
-});
-
-// 오늘 날짜 기본 설정
-(function initDefaults(){
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth()+1).padStart(2,'0');
-  const dd = String(today.getDate()).padStart(2,'0');
-  document.getElementById('dateInput').value = `${yyyy}-${mm}-${dd}`;
-  const hh = String(today.getHours()).padStart(2,'0');
-  const mi = String(today.getMinutes()+5).padStart(2,'0');
-  document.getElementById('timeInput').value = `${hh}:${mi}`;
-})();
-</script>
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+      const rawData = atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+      return outputArray;
+    }
+  </script>
 </body>
 </html>

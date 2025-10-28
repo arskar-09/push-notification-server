@@ -1,27 +1,22 @@
-// service-worker.js
 self.addEventListener('push', event => {
-  let data = { title: 'TimePeek', body: '새 알림이 있습니다.' };
-  try {
-    if (event.data) data = event.data.json();
-  } catch (e) {
-    console.error('푸시 데이터 파싱 실패', e);
-  }
-
-  const options = {
-    body: data.body,
-    icon: data.icon || '/icon.png',
-    badge: data.icon || '/icon.png',
-    vibrate: [100, 50, 100],
-    requireInteraction: false, // 유튜브처럼 자동 사라짐
-    tag: 'timepeek-alert'
-  };
-
+  const data = event.data.json();
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    self.registration.showNotification("📢 알림", {
+      body: data.body,
+      icon: "/icon.png",
+      badge: "/badge.png",
+      vibrate: [200, 100, 200],
+      requireInteraction: true,
+      actions: [
+        { action: "open", title: "열기" }
+      ]
+    })
   );
 });
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  event.waitUntil(clients.openWindow('/'));
+  event.waitUntil(
+    clients.openWindow('/')
+  );
 });

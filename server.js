@@ -1,65 +1,53 @@
 // server.js
-const express = require('express');
-const bodyParser = require('body-parser');
-const webpush = require('web-push');
-const cron = require('node-cron');
+const express = require("express");
+const bodyParser = require("body-parser");
+const webpush = require("web-push");
+const cron = require("node-cron");
+const cors = require("cors");
 
 const app = express();
+app.use(cors());
 app.use(bodyParser.json());
 
-// ====== VAPID 키 설정 ======
+const subscriptions = [];
+const scheduledMessages = [];
+
+// 환경변수에서 VAPID 키 불러오기
 const PUBLIC_VAPID_KEY = process.env.PUBLIC_VAPID_KEY;
 const PRIVATE_VAPID_KEY = process.env.PRIVATE_VAPID_KEY;
 
 webpush.setVapidDetails(
-  'mailto:your-email@example.com',
+  "mailto:your-email@example.com",
   PUBLIC_VAPID_KEY,
   PRIVATE_VAPID_KEY
 );
 
-// ====== 메모리 내 데이터 (배포 시 DB 권장) ======
-const subscriptions = [];
-const scheduledMessages = [];
-
-// ====== 구독 등록 ======
-app.post('/subscribe', (req, res) => {
-  const sub = req.body;
-  if (!subscriptions.find(s => JSON.stringify(s) === JSON.stringify(sub))) {
-    subscriptions.push(sub);
-  }
-  console.log('✅ 구독 등록됨:', subscriptions.length);
-  res.sendStatus(201);
+// 구독 등록
+app.post("/subscribe", (req, res) => {
+  subscriptions.push(req.body);
+  res.status(201).json({});
 });
 
-// ====== 예약 등록 ======
-app.post('/schedule', (req, res) => {
-  const { message, timestamp } = req.body;
-  if (!message || !timestamp) return res.status(400).json({ error: 'message와 timestamp 필요' });
-  scheduledMessages.push({ message, timestamp });
-  console.log('🕒 예약 추가:', message, new Date(timestamp).toLocaleString());
-  res.sendStatus(201);
+// 알림 예약 등록
+app.post("/schedule", (req, res) => {
+  scheduledMessages.push(req.body); // { message, timestamp }
+  res.status(201).json({ success: true });
 });
 
-// ====== 1분마다 예약 체크 ======
-cron.schedule('* * * * *', () => {
+// 1분마다 예약 메시지 확인
+cron.schedule("* * * * *", () => {
   const now = Date.now();
   for (let i = scheduledMessages.length - 1; i >= 0; i--) {
-    const item = scheduledMessages[i];
-    if (item.timestamp <= now) {
+    if (scheduledMessages[i].timestamp <= now) {
       subscriptions.forEach(sub => {
-        webpush.sendNotification(sub, JSON.stringify({
-          title: 'TimePeek 알림',
-          body: item.message,
-          icon: '/icon.png'
-        })).catch(console.error);
+        webpush
+          .sendNotification(sub, JSON.stringify({ body: scheduledMessages[i].message }))
+          .catch(err => console.error("Push error:", err));
       });
-      console.log('📢 알림 전송됨:', item.message);
       scheduledMessages.splice(i, 1);
     }
   }
 });
 
-app.get('/', (req, res) => res.send('Push server running'));
-
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
