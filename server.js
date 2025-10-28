@@ -18,6 +18,13 @@ const scheduledMessages = [];
 const PUBLIC_VAPID_KEY = process.env.PUBLIC_VAPID_KEY;
 const PRIVATE_VAPID_KEY = process.env.PRIVATE_VAPID_KEY;
 
+// 환경변수 없으면 배포 중단 + 에러 로그
+if (!PUBLIC_VAPID_KEY || !PRIVATE_VAPID_KEY) {
+  console.error("❌ VAPID keys are missing! Set them in Render environment variables.");
+  process.exit(1); // 서버 실행 중단
+}
+
+// VAPID 설정
 webpush.setVapidDetails(
   "mailto:eunchanmun4@gmail.com",
   PUBLIC_VAPID_KEY,
@@ -61,5 +68,6 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public/index.html"));
 });
 
+// 포트 설정
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
