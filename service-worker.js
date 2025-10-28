@@ -7,16 +7,12 @@ self.addEventListener('push', event => {
       badge: "/badge.png",
       vibrate: [200, 100, 200],
       requireInteraction: true,
-      actions: [
-        { action: "open", title: "열기" }
-      ]
+      actions: [{ action: "open", title: "열기" }]
     })
   );
 });
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  event.waitUntil(
-    clients.openWindow('/')
-  );
+  event.waitUntil(clients.openWindow('/'));
 });

@@ -4,10 +4,12 @@ const bodyParser = require("body-parser");
 const webpush = require("web-push");
 const cron = require("node-cron");
 const cors = require("cors");
+const path = require("path");
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, "public"))); // public 폴더에서 static 파일 제공
 
 const subscriptions = [];
 const scheduledMessages = [];
@@ -17,10 +19,15 @@ const PUBLIC_VAPID_KEY = process.env.PUBLIC_VAPID_KEY;
 const PRIVATE_VAPID_KEY = process.env.PRIVATE_VAPID_KEY;
 
 webpush.setVapidDetails(
-  "mailto:your-email@example.com",
+  "mailto:eunchanmun4@gmail.com",
   PUBLIC_VAPID_KEY,
   PRIVATE_VAPID_KEY
 );
+
+// Public VAPID Key 제공 (클라이언트에서 구독 시 사용)
+app.get("/public-key", (req, res) => {
+  res.send(PUBLIC_VAPID_KEY);
+});
 
 // 구독 등록
 app.post("/subscribe", (req, res) => {
@@ -47,6 +54,11 @@ cron.schedule("* * * * *", () => {
       scheduledMessages.splice(i, 1);
     }
   }
+});
+
+// 모든 요청에 index.html 제공
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public/index.html"));
 });
 
 const PORT = process.env.PORT || 3000;
