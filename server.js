@@ -1,3 +1,4 @@
+// server.js
 const express = require('express');
 const bodyParser = require('body-parser');
 const webpush = require('web-push');
@@ -16,39 +17,49 @@ webpush.setVapidDetails(
   PRIVATE_VAPID_KEY
 );
 
-// ====== 임시 DB ======
+// ====== 메모리 내 데이터 (배포 시 DB 권장) ======
 const subscriptions = [];
 const scheduledMessages = [];
 
 // ====== 구독 등록 ======
 app.post('/subscribe', (req, res) => {
-  subscriptions.push(req.body);
-  console.log('구독 등록됨:', req.body);
+  const sub = req.body;
+  if (!subscriptions.find(s => JSON.stringify(s) === JSON.stringify(sub))) {
+    subscriptions.push(sub);
+  }
+  console.log('✅ 구독 등록됨:', subscriptions.length);
   res.sendStatus(201);
 });
 
-// ====== 알림 예약 ======
+// ====== 예약 등록 ======
 app.post('/schedule', (req, res) => {
   const { message, timestamp } = req.body;
+  if (!message || !timestamp) return res.status(400).json({ error: 'message와 timestamp 필요' });
   scheduledMessages.push({ message, timestamp });
-  console.log('알림 예약됨:', message, new Date(timestamp).toLocaleString());
+  console.log('🕒 예약 추가:', message, new Date(timestamp).toLocaleString());
   res.sendStatus(201);
 });
 
-// ====== 1분마다 예약 메시지 체크 ======
+// ====== 1분마다 예약 체크 ======
 cron.schedule('* * * * *', () => {
   const now = Date.now();
   for (let i = scheduledMessages.length - 1; i >= 0; i--) {
-    const { message, timestamp } = scheduledMessages[i];
-    if (timestamp <= now) {
+    const item = scheduledMessages[i];
+    if (item.timestamp <= now) {
       subscriptions.forEach(sub => {
-        webpush.sendNotification(sub, message).catch(err => console.error('푸시 전송 실패', err));
+        webpush.sendNotification(sub, JSON.stringify({
+          title: 'TimePeek 알림',
+          body: item.message,
+          icon: '/icon.png'
+        })).catch(console.error);
       });
+      console.log('📢 알림 전송됨:', item.message);
       scheduledMessages.splice(i, 1);
     }
   }
 });
 
-app.listen(3000, () => {
-  console.log('서버 실행 중: http://localhost:3000');
-});
+app.get('/', (req, res) => res.send('Push server running'));
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
